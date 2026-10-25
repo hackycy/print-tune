@@ -1,0 +1,41 @@
+{
+  "formatVersion": 1,
+  "payload": {
+    "packageId": "7a2bd8a1-25f2-4c6f-b4f4-7aa2a2d2c001",
+    "exportedAt": "2026-10-25T17:00:00+08:00",
+    "source": "printer-defaults",
+    "printer": {
+      "printerName": "Example PDF Queue",
+      "queueName": "Example PDF Queue",
+      "portName": "PORTPROMPT:",
+      "driverName": "PrintTune Example Virtual Driver",
+      "driverVersion": "1.0.0.0",
+      "driverEnvironment": "Windows x64",
+      "osVersion": "Windows 11 23H2",
+      "processArchitecture": "x64"
+    },
+    "devMode": {
+      "encoding": "DEVMODEW",
+      "totalSize": 224,
+      "publicSize": 220,
+      "driverExtraSize": 4,
+      "data": "RQB4AGEAbQBwAGwAZQAgAFAARABGACAAUQB1AGUAdQBlAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEEAQDcAAQAAz0AAAEACQAAAAAAZAABAAcAWAICAAEAWAIBAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFBUUDA="
+    },
+    "requiredFeatures": [],
+    "extensions": {
+      "cn.printtune.example": {
+        "nonImportable": true
+      }
+    }
+  },
+  "display": {
+    "name": "PrintTune 结构示例（不可导入）",
+    "notes": "仅用于 Schema、JCS 与 SHA-256 测试。DEVMODEW 为构造数据，不是任何真实驱动的有效配置。",
+    "applicableModels": "无；禁止用于真实打印机"
+  },
+  "integrity": {
+    "algorithm": "sha256",
+    "scope": "jcs-rfc8785-payload-v1",
+    "value": "1985e8311a853edc63d682c446f0fca3bb37bce50fc341ddba7c0585cebe2fd2"
+  }
+}

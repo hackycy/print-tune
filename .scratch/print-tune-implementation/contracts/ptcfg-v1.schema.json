@@ -1,0 +1,103 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:printtune:ptcfg:v1:schema",
+  "title": "PrintTune Configuration Package v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formatVersion", "payload", "display", "integrity"],
+  "properties": {
+    "formatVersion": { "const": 1 },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["packageId", "exportedAt", "source", "printer", "devMode", "requiredFeatures", "extensions"],
+      "properties": {
+        "packageId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "exportedAt": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 40
+        },
+        "source": {
+          "type": "string",
+          "enum": ["printer-defaults", "user-defaults"]
+        },
+        "printer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["printerName", "queueName", "portName", "driverName", "driverVersion", "driverEnvironment", "osVersion", "processArchitecture"],
+          "properties": {
+            "printerName": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "queueName": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "portName": { "type": ["string", "null"], "maxLength": 256 },
+            "driverName": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "driverVersion": { "type": ["string", "null"], "maxLength": 128 },
+            "driverEnvironment": { "type": ["string", "null"], "maxLength": 128 },
+            "osVersion": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "processArchitecture": { "type": "string", "enum": ["x86", "x64"] }
+          }
+        },
+        "devMode": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["encoding", "totalSize", "publicSize", "driverExtraSize", "data"],
+          "properties": {
+            "encoding": { "const": "DEVMODEW" },
+            "totalSize": { "type": "integer", "minimum": 1, "maximum": 1048576 },
+            "publicSize": { "type": "integer", "minimum": 1, "maximum": 1048576 },
+            "driverExtraSize": { "type": "integer", "minimum": 0, "maximum": 1048576 },
+            "data": {
+              "type": "string",
+              "minLength": 4,
+              "maxLength": 1398104,
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "contentEncoding": "base64"
+            }
+          }
+        },
+        "requiredFeatures": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "pattern": "^[a-z][a-z0-9]*(\\.[a-z0-9-]+)+$"
+          }
+        },
+        "extensions": {
+          "type": "object",
+          "maxProperties": 32,
+          "propertyNames": {
+            "maxLength": 128,
+            "pattern": "^[a-z][a-z0-9]*(\\.[a-z0-9-]+)+$"
+          },
+          "additionalProperties": true
+        }
+      }
+    },
+    "display": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "notes", "applicableModels"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "notes": { "type": "string", "maxLength": 4096 },
+        "applicableModels": { "type": "string", "maxLength": 2048 }
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "scope", "value"],
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "scope": { "const": "jcs-rfc8785-payload-v1" },
+        "value": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

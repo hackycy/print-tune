@@ -1,0 +1,135 @@
+{
+  "suiteVersion": 1,
+  "baseExample": "examples/minimal-valid.ptcfg",
+  "canonicalization": {
+    "algorithm": "JCS / RFC 8785",
+    "inputPointer": "/payload",
+    "textEncoding": "UTF-8",
+    "hash": "SHA-256, lowercase hex",
+    "expectedExampleHash": "1985e8311a853edc63d682c446f0fca3bb37bce50fc341ddba7c0585cebe2fd2",
+    "notes": "The example payload contains only ASCII property names, integers, strings, arrays, objects and one boolean. Reject duplicate JSON keys before canonicalization."
+  },
+  "applicationLimits": {
+    "fileBytesMaximum": 4194304,
+    "jsonDepthMaximum": 16,
+    "decodedDevModeBytesMaximum": 1048576,
+    "requiredFeaturesKnown": []
+  },
+  "stages": ["file", "json", "version", "schema", "integrity", "base64", "devmode", "features", "compatibility"],
+  "errorCodes": [
+    "PTCFG_FILE_TOO_LARGE",
+    "PTCFG_JSON_INVALID",
+    "PTCFG_DUPLICATE_KEY",
+    "PTCFG_VERSION_UNSUPPORTED",
+    "PTCFG_SCHEMA_INVALID",
+    "PTCFG_CHECKSUM_MISMATCH",
+    "PTCFG_BASE64_INVALID",
+    "PTCFG_DEVMODE_LENGTH_INVALID",
+    "PTCFG_DEVMODE_STRUCTURE_INVALID",
+    "PTCFG_REQUIRED_FEATURE_UNKNOWN",
+    "PTCFG_IDENTITY_MISSING"
+  ],
+  "mutationSemantics": {
+    "path": "RFC 6901 JSON Pointer",
+    "rehashPayload": "If true, recompute integrity.value from canonical payload after mutation so validation reaches the intended later stage.",
+    "rawDocument": "If present, use this text instead of the base example; duplicate keys must not be discarded by the JSON parser.",
+    "syntheticFileBytes": "If present, generate a file of this size before the file-stage check."
+  },
+  "vectors": [
+    {
+      "id": "valid-example",
+      "mutation": { "op": "none" },
+      "expected": { "validation": "pass", "compatibility": "not-asserted" }
+    },
+    {
+      "id": "display-edit-preserves-integrity",
+      "mutation": { "op": "set", "path": "/display/name", "value": "客服修改后的名称" },
+      "expected": { "validation": "pass", "integrityUnchanged": true }
+    },
+    {
+      "id": "payload-key-order-does-not-matter",
+      "mutation": { "op": "reverseObjectKeys", "path": "/payload" },
+      "expected": { "validation": "pass", "integrityUnchanged": true }
+    },
+    {
+      "id": "protected-change-without-rehash",
+      "mutation": { "op": "set", "path": "/payload/printer/driverName", "value": "Tampered Driver" },
+      "expected": { "validation": "fail", "stage": "integrity", "code": "PTCFG_CHECKSUM_MISMATCH" }
+    },
+    {
+      "id": "duplicate-root-key",
+      "mutation": { "rawDocument": "{\"formatVersion\":1,\"formatVersion\":1}" },
+      "expected": { "validation": "fail", "stage": "json", "code": "PTCFG_DUPLICATE_KEY" }
+    },
+    {
+      "id": "unsupported-newer-version",
+      "mutation": { "op": "set", "path": "/formatVersion", "value": 2 },
+      "expected": { "validation": "fail", "stage": "version", "code": "PTCFG_VERSION_UNSUPPORTED" }
+    },
+    {
+      "id": "unknown-payload-field",
+      "mutation": { "op": "set", "path": "/payload/untrustedAlias", "value": "unknown", "rehashPayload": true },
+      "expected": { "validation": "fail", "stage": "schema", "code": "PTCFG_SCHEMA_INVALID" }
+    },
+    {
+      "id": "unknown-optional-extension",
+      "mutation": { "op": "set", "path": "/payload/extensions/com.example.optional", "value": { "mode": 1 }, "rehashPayload": true },
+      "expected": { "validation": "pass", "extensionPreservedOnDisplayEdit": true, "compatibility": "unchanged" }
+    },
+    {
+      "id": "unknown-required-feature",
+      "mutation": { "op": "set", "path": "/payload/requiredFeatures", "value": ["com.example.required-private-layout"], "rehashPayload": true },
+      "expected": { "validation": "fail", "stage": "features", "code": "PTCFG_REQUIRED_FEATURE_UNKNOWN" }
+    },
+    {
+      "id": "truncated-base64",
+      "mutation": { "op": "set", "path": "/payload/devMode/data", "value": "RQB4AGEAbQBwAGwAZQ==", "rehashPayload": true },
+      "expected": { "validation": "fail", "stage": "devmode", "code": "PTCFG_DEVMODE_LENGTH_INVALID" }
+    },
+    {
+      "id": "illegal-base64-characters",
+      "mutation": { "op": "set", "path": "/payload/devMode/data", "value": "!!!!", "rehashPayload": true },
+      "expected": { "validation": "fail", "stage": "schema", "code": "PTCFG_SCHEMA_INVALID" }
+    },
+    {
+      "id": "declared-total-differs-from-sum",
+      "mutation": { "op": "set", "path": "/payload/devMode/totalSize", "value": 225, "rehashPayload": true },
+      "expected": { "validation": "fail", "stage": "devmode", "code": "PTCFG_DEVMODE_LENGTH_INVALID" }
+    },
+    {
+      "id": "size-sum-and-decoded-length-overflow",
+      "mutation": { "op": "setMultiple", "values": { "/payload/devMode/totalSize": 1048576, "/payload/devMode/publicSize": 1048576, "/payload/devMode/driverExtraSize": 1 }, "rehashPayload": true },
+      "expected": { "validation": "fail", "stage": "devmode", "code": "PTCFG_DEVMODE_LENGTH_INVALID" }
+    },
+    {
+      "id": "internal-devmode-size-disagrees-with-metadata",
+      "mutation": { "op": "setMultiple", "values": { "/payload/devMode/totalSize": 224, "/payload/devMode/publicSize": 218, "/payload/devMode/driverExtraSize": 6 }, "rehashPayload": true },
+      "expected": { "validation": "fail", "stage": "devmode", "code": "PTCFG_DEVMODE_STRUCTURE_INVALID" }
+    },
+    {
+      "id": "ansi-devmode-rejected",
+      "mutation": { "op": "set", "path": "/payload/devMode/encoding", "value": "DEVMODEA", "rehashPayload": true },
+      "expected": { "validation": "fail", "stage": "schema", "code": "PTCFG_SCHEMA_INVALID" }
+    },
+    {
+      "id": "missing-driver-version-blocks-full-restore",
+      "mutation": { "op": "set", "path": "/payload/printer/driverVersion", "value": null, "rehashPayload": true },
+      "expected": { "validation": "pass", "stage": "compatibility", "compatibility": "blocked", "code": "PTCFG_IDENTITY_MISSING" }
+    },
+    {
+      "id": "uppercase-checksum-rejected",
+      "mutation": { "op": "set", "path": "/integrity/value", "value": "1985E8311A853EDC63D682C446F0FCA3BB37BCE50FC341DDBA7C0585CEBE2FD2" },
+      "expected": { "validation": "fail", "stage": "schema", "code": "PTCFG_SCHEMA_INVALID" }
+    },
+    {
+      "id": "display-applicability-is-not-compatibility-evidence",
+      "mutation": { "op": "set", "path": "/display/applicableModels", "value": "所有打印机均已验证" },
+      "expected": { "validation": "pass", "compatibility": "unchanged" }
+    },
+    {
+      "id": "oversized-file-rejected-before-json",
+      "mutation": { "syntheticFileBytes": 4194305 },
+      "expected": { "validation": "fail", "stage": "file", "code": "PTCFG_FILE_TOO_LARGE" }
+    }
+  ]
+}

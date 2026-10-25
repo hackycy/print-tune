@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PrintTune P0 验证矩阵原型</title>
+<style>
+:root{--bg:#f5f7fa;--panel:#fff;--text:#172033;--muted:#667085;--line:#dfe4ec;--accent:#175cd3;--soft:#eff6ff;--good:#067647;--good-bg:#ecfdf3;--bad:#b42318;--bad-bg:#fef3f2;--warn:#b54708;--warn-bg:#fffaeb}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.55 "Segoe UI","Microsoft YaHei",sans-serif}main{max-width:1240px;margin:0 auto;padding:28px}h1{font-size:26px;margin:0 0 6px}h2{font-size:18px;margin:0 0 14px}h3{font-size:15px;margin:0 0 8px}.sub,.hint{color:var(--muted)}.banner{background:#fff8e6;border:1px solid #fedf89;border-radius:10px;padding:12px 16px;margin:18px 0}.grid{display:grid;grid-template-columns:1.5fr 1fr;gap:18px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:18px}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.field{display:flex;flex-direction:column;gap:4px}.field label{font-size:12px;color:var(--muted)}input,select,textarea{font:inherit;color:var(--text);background:#fff;border:1px solid #cfd6e2;border-radius:7px;padding:8px}textarea{width:100%;min-height:64px;resize:vertical}.check{flex-direction:row;align-items:center;margin-top:22px}.check input{width:16px;height:16px}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}.metric{background:#f8fafc;border-radius:8px;padding:10px;text-align:center}.metric b{display:block;font-size:22px}.verdict{padding:14px;border-radius:9px;font-weight:600;background:var(--warn-bg);color:var(--warn)}.verdict.good{background:var(--good-bg);color:var(--good)}.verdict.bad{background:var(--bad-bg);color:var(--bad)}.reasons{margin:10px 0 0;padding-left:20px;color:var(--muted)}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px 8px;border-bottom:1px solid var(--line);vertical-align:top}th{font-size:12px;color:var(--muted)}tr.selected{background:var(--soft)}tr.clickable{cursor:pointer}.tag{display:inline-block;border-radius:999px;padding:2px 8px;font-size:12px;background:#f2f4f7}.tag.pass{background:var(--good-bg);color:var(--good)}.tag.fail{background:var(--bad-bg);color:var(--bad)}.tag.skip{background:var(--warn-bg);color:var(--warn)}.buttons{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}button{font:inherit;border:1px solid #cfd6e2;border-radius:7px;background:#fff;color:var(--text);padding:8px 12px;cursor:pointer}button:hover{border-color:var(--accent)}button.primary{background:var(--accent);border-color:var(--accent);color:#fff}button.good{background:var(--good-bg);color:var(--good);border-color:#abefc6}button.bad{background:var(--bad-bg);color:var(--bad);border-color:#fecdca}.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}.tabs button.active{background:var(--soft);color:var(--accent);border-color:#b2ccff}.scenario{padding:12px;background:#f8fafc;border-radius:8px}.scenario ol{padding-left:22px}.scenario button{margin:4px 4px 4px 0}.evidence{font-family:Consolas,monospace;font-size:12px;color:var(--muted)}.footer{color:var(--muted);font-size:12px;text-align:center;padding:10px}@media(max-width:900px){.grid{grid-template-columns:1fr}.meta{grid-template-columns:1fr 1fr}main{padding:16px}}@media(max-width:560px){.meta{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<main>
+<h1>PrintTune · P0 原生 API 验证矩阵</h1>
+<div class="sub">要回答的问题：需要哪些证据，才能把精确设备/驱动组合列为“完整恢复”或“仅标准字段恢复”候选？</div>
+<div class="banner"><b>一次性原型：</b>本页面不调用 Win32、不修改打印机。它用于评审验证步骤、记录模拟结果和固定报告结构；真实结果必须由后续原生探针与人工验收提供。</div>
+<div class="grid">
+<section>
+<div class="panel">
+<h2>1. 本次验证身份</h2>
+<div class="meta" id="meta"></div>
+</div>
+<div class="panel">
+<h2>2. 逐项记录结果</h2>
+<div class="hint">点击一行选择检查项，再记录通过、失败或跳过。跳过不等于通过；所有证据字段都应来自真实运行。</div>
+<table><thead><tr><th>检查项</th><th>类型</th><th>结果</th></tr></thead><tbody id="cases"></tbody></table>
+<div id="caseDetail"></div>
+</div>
+<div class="panel">
+<h2>3. 引导场景</h2>
+<div class="tabs" id="tabs"></div>
+<div class="scenario" id="scenario"></div>
+</div>
+</section>
+<aside>
+<div class="panel">
+<h2>当前判定</h2>
+<div class="summary" id="summary"></div>
+<div id="verdict"></div>
+<ul class="reasons" id="reasons"></ul>
+</div>
+<div class="panel">
+<h2>白名单规则</h2>
+<p><b>完整恢复：</b>精确身份一致，所有适用的读取、写入、回读、回滚、GDI 与人工业务检查通过。虚拟打印机不能证明切刀、钱箱等物理能力。</p>
+<p><b>标准字段恢复：</b>目标能力与迁移组合通过，且业务不依赖未恢复的私有参数。只匹配驱动名/版本/架构不够。</p>
+<p><b>证据不足：</b>存在未执行或跳过的必需项，不进入任何白名单。</p>
+</div>
+<div class="panel">
+<h2>报告操作</h2>
+<div class="hint">导出内容包含身份、各项状态、证据文本与当前判定；不包含 DEVMODE 私有字节。</div>
+<div class="buttons"><button class="primary" id="export">导出 JSON 报告</button><button id="reset">清空结果</button></div>
+</div>
+</aside>
+</div>
+<div class="footer">PrintTune P0 validation matrix · throwaway prototype · no printer access</div>
+</main>
+<script>
+const ProbeLogic=(()=>{
+const cases=[
+{id:"P0-01",title:"队列、驱动与真实版本元数据",kind:"只读自动",why:"确认队列名/端口与 DRIVER_INFO_6 的版本、环境来源，缺失字段必须记未知。",required:["full","standard"]},
+{id:"P0-02",title:"Level 8/9 最小读取权限",kind:"只读自动",why:"在标准用户与目标 ACL 下记录 OpenPrinter/GetPrinter 返回和 GetLastError。",required:["full","standard"]},
+{id:"P0-03",title:"完整 DEVMODEW 读取与驱动合并",kind:"只读自动",why:"验证探长度、dmSize+dmDriverExtra、深复制、DM_OUT_BUFFER 与合并输出，不保存指针。",required:["full","standard"]},
+{id:"P0-04",title:"目标能力、分辨率、纸张与表单",kind:"只读自动",why:"记录 DeviceCapabilities/EnumForms；自定义表单需比较 Size 与 ImageableArea。",required:["full","standard"]},
+{id:"P0-05",title:"原厂窗口 OK / Cancel / 失败",kind:"人工界面",why:"确认 IDOK 才接受工作副本；取消和失败不得污染已保存系统配置。",required:["full"]},
+{id:"P0-06",title:"Level 9 同用户写入、回读与回滚",kind:"显式写入",why:"只能在原交互用户进程执行，记录标准用户权限、同层回读和备份恢复。",required:["level9"]},
+{id:"P0-07",title:"Level 8 直接/提权写入与回读",kind:"显式写入",why:"分别记录队列管理权限、拒绝提权、helper 写入和同层回读。",required:["level8"]},
+{id:"P0-08",title:"Level 8 对 Level 9 的影响范围",kind:"显式写入",why:"备份并比较当前用户 Level 9；另一用户单独验证，不能由当前用户结果外推。",required:["level8"]},
+{id:"P0-09",title:"GDI 显式 DEVMODE 测试输出",kind:"测试输出",why:"记录 CreateDC/StartDoc/EndDoc 与作业状态；RAW 结果不能替代。",required:["full","standard"]},
+{id:"P0-10",title:"失败注入与双层备份回滚",kind:"显式写入",why:"模拟写入失败、回读差异、helper 超时/崩溃；保留原始错误和回滚错误。",required:["full","standard"]},
+{id:"P0-11",title:"真实业务路径与纸面人工确认",kind:"实机人工",why:"记录纸张、浓度、切刀、钱箱等实际必需项；作业提交不是物理成功。",required:["physical"]}
+];
+const blankMeta={device:"",driver:"",version:"",environment:"x64",os:"Windows 11",queue:"",connection:"本地 USB/网口",sourceLevel:"8",deviceClass:"physical",businessPath:"GDI",tester:"",privateRequired:true};
+const initialState=()=>({meta:{...blankMeta},selected:"P0-01",results:{},scenario:"happy",lastAction:"尚未记录结果"});
+function required(c,m){return c.required.includes("full")||c.required.includes("standard")||c.required.includes("level"+m.sourceLevel)||(c.required.includes("physical")&&m.deviceClass==="physical");}
+function evaluate(state,mode){
+const req=cases.filter(c=>required(c,state.meta)&&c.required.includes(mode));
+if(mode==="standard"&&state.meta.privateRequired)return{status:"blocked",label:"标准字段恢复被阻断",reasons:["业务仍依赖浓度、切刀、钱箱等私有参数，不能宣称标准字段恢复完整。"],missing:[]};
+const failed=req.filter(c=>state.results[c.id]?.status==="fail");
+const missing=req.filter(c=>!state.results[c.id]||state.results[c.id].status!=="pass");
+if(failed.length)return{status:"blocked",label:mode==="full"?"完整恢复被阻断":"标准字段恢复被阻断",reasons:failed.map(c=>c.id+" 失败："+c.title),missing:missing.map(c=>c.id)};
+if(missing.length)return{status:"insufficient",label:"证据不足",reasons:["必需项未全部通过；跳过和未执行都不算通过。"],missing:missing.map(c=>c.id)};
+return{status:"eligible",label:mode==="full"?"完整恢复候选":"仅标准字段恢复候选",reasons:["所有适用必需项均记录为通过；仍需审核证据文本与精确身份。"],missing:[]};
+}
+function verdict(state){const full=evaluate(state,"full"),standard=evaluate(state,"standard");return full.status==="eligible"?full:standard.status==="eligible"?standard:(full.status==="blocked"&&standard.status==="blocked")?{status:"blocked",label:"当前组合阻断",reasons:[...full.reasons,...standard.reasons],missing:[]}:{status:"insufficient",label:full.label==="证据不足"?full.label:standard.label,reasons:[...full.reasons,...standard.reasons],missing:[...new Set([...full.missing,...standard.missing])]};}
+function reduce(state,action){
+if(action.type==="meta")return{...state,meta:{...state.meta,[action.key]:action.value},lastAction:"更新验证身份"};
+if(action.type==="select")return{...state,selected:action.id,lastAction:"选择 "+action.id};
+if(action.type==="result")return{...state,results:{...state.results,[action.id]:{status:action.status,evidence:action.evidence??state.results[action.id]?.evidence??""}},lastAction:action.id+" 标记为 "+action.status};
+if(action.type==="reset")return{...initialState(),lastAction:"已清空结果"};
+if(action.type==="scenario"){const next=initialState();next.scenario=action.id;next.meta={...next.meta,...action.meta};next.lastAction="载入场景："+action.id;return next;}
+if(action.type==="scenarioResult")return reduce(reduce(state,{type:"scenario",id:state.scenario,meta:action.meta}),{type:"result",id:action.id,status:action.status,evidence:action.evidence});
+return state;
+}
+return{cases,initialState,required,evaluate,verdict,reduce};
+})();
+const scenarios=[
+{id:"happy",name:"完整恢复通过",description:"实体设备、Level 8、所有适用证据均通过。观察为何仍需人工纸面确认。",meta:{deviceClass:"physical",sourceLevel:"8",privateRequired:true},steps:[["P0-01","pass"],["P0-02","pass"],["P0-03","pass"],["P0-04","pass"],["P0-05","pass"],["P0-07","pass"],["P0-08","pass"],["P0-09","pass"],["P0-10","pass"],["P0-11","pass"]]},
+{id:"level9",name:"Level 9 影响",description:"模拟 Level 8 写入改变当前用户首选项，必须阻断完整恢复并复核双层备份。",meta:{deviceClass:"physical",sourceLevel:"8",privateRequired:true},steps:[["P0-01","pass"],["P0-02","pass"],["P0-03","pass"],["P0-04","pass"],["P0-05","pass"],["P0-07","pass"],["P0-08","fail","写 Level 8 后当前用户 Level 9 发生变化，回滚未覆盖"]]},
+{id:"rollback",name:"回滚失败",description:"回读差异触发回滚，但恢复也失败；该组合不能进入白名单，且诊断需保留两组错误。",meta:{deviceClass:"physical",sourceLevel:"8",privateRequired:true},steps:[["P0-01","pass"],["P0-02","pass"],["P0-03","pass"],["P0-04","pass"],["P0-07","pass"],["P0-08","pass"],["P0-09","pass"],["P0-10","fail","回读差异；回滚超时；保留应用错误与回滚错误"]]},
+{id:"standard",name:"仅标准字段",description:"业务不依赖私有参数，必要的标准字段迁移与回滚证据通过。",meta:{deviceClass:"virtual",sourceLevel:"9",privateRequired:false},steps:[["P0-01","pass"],["P0-02","pass"],["P0-03","pass"],["P0-04","pass"],["P0-06","pass"],["P0-09","pass"],["P0-10","pass"]]},
+{id:"illegal",name:"仅元数据匹配",description:"只确认同名同版本，没有任何 API 或纸面证据。正确结果必须是证据不足，而不是完整兼容。",meta:{deviceClass:"physical",sourceLevel:"8",privateRequired:true},steps:[["P0-01","pass","驱动名、版本、架构一致；未执行其他验证"]]}
+];
+let state=ProbeLogic.initialState();
+const labels={pass:"通过",fail:"失败",skip:"跳过"};
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function dispatch(a){state=ProbeLogic.reduce(state,a);render();}
+function render(){
+const fields=[["device","设备型号","text"],["driver","驱动名称","text"],["version","真实驱动版本","text"],["environment","驱动环境","select",["x86","x64","ARM64","未知"]],["os","Windows 版本","select",["Windows 7 SP1","Windows 10","Windows 11"]],["queue","目标队列","text"],["connection","连接方式","select",["本地 USB/网口","共享/远程队列"]],["sourceLevel","来源层","select",[["8","Level 8 队列默认"],["9","Level 9 当前用户"]]],["deviceClass","设备类型","select",[["physical","实体票据机"],["virtual","虚拟打印机"]]],["businessPath","业务打印路径","select",["GDI","RAW","厂商 SDK","不确定"]],["tester","验收人","text"]];
+document.getElementById("meta").innerHTML=fields.map(([k,l,t,opts])=>`<div class="field ${k==="privateRequired"?"check":""}"><label>${l}</label>${t==="select"?`<select data-key="${k}">${opts.map(o=>{const[v,n]=Array.isArray(o)?o:[o,o];return`<option value="${v}" ${String(state.meta[k])===String(v)?"selected":""}>${n}</option>`}).join("")}</select>`:`<input data-key="${k}" value="${esc(state.meta[k])}">`}</div>`).join("")+`<label class="field check"><input type="checkbox" data-key="privateRequired" ${state.meta.privateRequired?"checked":""}>业务依赖私有参数</label>`;
+document.querySelectorAll("[data-key]").forEach(el=>el.onchange=e=>dispatch({type:"meta",key:e.target.dataset.key,value:e.target.type==="checkbox"?e.target.checked:e.target.value}));
+document.getElementById("cases").innerHTML=ProbeLogic.cases.map(c=>{const r=state.results[c.id];const req=ProbeLogic.required(c,state.meta);return`<tr class="clickable ${state.selected===c.id?"selected":""}" data-id="${c.id}"><td><b>${c.id}</b> ${c.title}${req?"":" <span class='tag'>本层非必需</span>"}</td><td>${c.kind}</td><td><span class="tag ${r?.status||""}">${r?labels[r.status]:"未执行"}</span></td></tr>`}).join("");
+document.querySelectorAll("tr[data-id]").forEach(el=>el.onclick=()=>dispatch({type:"select",id:el.dataset.id}));
+const c=ProbeLogic.cases.find(x=>x.id===state.selected),r=state.results[c.id]||{};
+document.getElementById("caseDetail").innerHTML=`<h3>${c.id} · 证据要求</h3><div class="hint">${c.why}</div><textarea id="evidence" placeholder="记录返回值、GetLastError、版本、长度、回读差异、输出文件或人工结果">${esc(r.evidence||"")}</textarea><div class="buttons"><button class="good" data-result="pass">记录通过</button><button class="bad" data-result="fail">记录失败</button><button data-result="skip">记录跳过</button></div>`;
+document.querySelectorAll("[data-result]").forEach(b=>b.onclick=()=>dispatch({type:"result",id:c.id,status:b.dataset.result,evidence:document.getElementById("evidence").value}));
+const vals=Object.values(state.results),counts={pass:0,fail:0,skip:0};vals.forEach(x=>counts[x.status]++);
+document.getElementById("summary").innerHTML=[["通过",counts.pass],["失败",counts.fail],["跳过",counts.skip],["未执行",ProbeLogic.cases.length-vals.length]].map(([l,v])=>`<div class="metric"><b>${v}</b>${l}</div>`).join("");
+const v=ProbeLogic.verdict(state);document.getElementById("verdict").className="verdict "+(v.status==="eligible"?"good":v.status==="blocked"?"bad":"");document.getElementById("verdict").textContent=v.label;
+document.getElementById("reasons").innerHTML=[...v.reasons,v.missing.length?"缺少："+v.missing.join("、"):""].filter(Boolean).map(x=>`<li>${esc(x)}</li>`).join("");
+document.getElementById("tabs").innerHTML=scenarios.map(s=>`<button data-scenario="${s.id}" class="${state.scenario===s.id?"active":""}">${s.name}</button>`).join("");
+document.querySelectorAll("[data-scenario]").forEach(b=>b.onclick=()=>dispatch({type:"scenario",id:b.dataset.scenario,meta:scenarios.find(s=>s.id===b.dataset.scenario).meta}));
+const s=scenarios.find(x=>x.id===state.scenario);document.getElementById("scenario").innerHTML=`<b>${s.name}</b><p>${s.description}</p><div>${s.steps.map(([id,status,evidence],i)=>`<button data-step="${i}">${i+1}. ${id} → ${labels[status]}</button>`).join("")}</div><div class="hint">点击任一场景按钮会重置为场景初态，再执行该步骤；重复点击可比较判定变化。</div>`;
+document.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{const[id,status,evidence]=s.steps[Number(b.dataset.step)];dispatch({type:"scenarioResult",id,status,evidence:evidence||"场景模拟通过",meta:s.meta});});
+}
+document.getElementById("reset").onclick=()=>dispatch({type:"reset"});
+document.getElementById("export").onclick=()=>{const report={prototype:"PrintTune P0 validation matrix",note:"原型报告；真实使用时需替换为原生探针与人工证据",...state,verdict:ProbeLogic.verdict(state)};const blob=new Blob([JSON.stringify(report,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="print-tune-p0-prototype-report.json";a.click();URL.revokeObjectURL(a.href);};
+render();
+</script>
+</body>
+</html>
